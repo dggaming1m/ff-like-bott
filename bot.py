@@ -1,17 +1,4 @@
-import logging import time import random import string import os from datetime import datetime, timedelta from pymongo import MongoClient from flask import Flask, request from telegram import Update, InlineKeyboardMarkup, InlineKeyimport logging
-import time
-import random
-import string
-import os
-from datetime import datetime, timedelta
-from pymongo import MongoClient
-from flask import Flask, request
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Application, CommandHandler, ContextTypes
-import requests
-import threading
-import asyncio
-from dotenv import load_dotenv
+import logging import time import random import string import os from datetime import datetime, timedelta from pymongo import MongoClient from flask import Flask, request from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton from telegram.ext import Application, CommandHandler, ContextTypes import requests import threading import asyncio from dotenv import load_dotenv
 
 === Load environment variables ===
 
@@ -79,54 +66,47 @@ except:
 profiles.update_one({"user_id": target_id}, {"$set": {"is_vip": True}}, upsert=True)
 await update.message.reply_text(f"✅ VIP access granted to user `{target_id}`", parse_mode='Markdown')
 
-async def process_verified_likes(app: Application): while True: pending = users.find({"verified": True, "processed": {"$ne": True}}) for user in pending: uid = user['uid'] user_id = user['user_id'] chat_id = user['chat_id'] msg_id = user['message_id']
+async def process_verified_likes(app: Application): while True: pending = users.find({"verified": True, "processed": {"$ne": True}}) for user in pending: uid = user['uid'] user_id = user['user_id'] profile = profiles.find_one({"user_id": user_id}) or {} is_vip = profile.get("is_vip", False) last_used = profile.get("last_used")
 
-try:
-            response = requests.get(f"{LIKE_API_URL}?uid={uid}&server_name=ind")
-            data = response.json()
+if not is_vip and last_used:
+            elapsed = datetime.utcnow() - last_used
+            if elapsed < timedelta(hours=24):
+                remaining = timedelta(hours=24) - elapsed
+                hours, remainder = divmod(remaining.seconds, 3600)
+                minutes = remainder // 60
+                result = f"❌ *Daily Limit Reached*\n\n⏳ Try again after: {hours}h {minutes}m"
+                try:
+                    await app.bot.send_message(
+                        chat_id=user['chat_id'],
+                        reply_to_message_id=user['message_id'],
+                        text=result,
+                        parse_mode='Markdown'
+                    )
+                except:
+                    pass
+                users.update_one({"_id": user['_id']}, {"$set": {"processed": True}})
+                continue
 
-            if str(data.get("UID", "")) != uid:
-                result = "🔺️Error: Response UID doesn't match requested UID"
-            elif data.get("status") == 2:
-                result = (
-                    f"❌ *Like Failed or Max Limit Reached*\n\n"
-                    f"👤 *Player:* {data.get('PlayerNickname', 'Unknown')}\n"
-                    f"🆔 *UID:* `{uid}`\n"
-                    f"👍 *Likes Before:* {data.get('LikesbeforeCommand', 0)}\n"
-                    f"✨ *Likes Added:* 0\n"
-                    f"🇮🇳 *Total Likes Now:* {data.get('LikesafterCommand', 0)}\n"
-                    f"⏰ *Tried At:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
-                )
+        try:
+            api_resp = requests.get(LIKE_API_URL.format(uid=uid), timeout=10).json()
+            player = api_resp.get("PlayerNickname", f"Player-{uid[-4:]}")
+            before = api_resp.get("LikesbeforeCommand", 0)
+            after = api_resp.get("LikesafterCommand", 0)
+            added = api_resp.get("LikesGivenByAPI", 0)
+
+            if added == 0:
+                result = f"❌ *Like Failed or Max Limit Reached*\n\n👤 *Player:* {player}\n🆔 *UID:* `{uid}`\n👍 *Likes Before:* {before}\n✨ *Likes Added:* 0\n🇮🇳 *Total Likes Now:* {after}\n⏰ *Tried At:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
             else:
-                before = data.get("LikesbeforeCommand", 0)
-                after = data.get("LikesafterCommand", 0)
-                added = data.get("LikesGivenByAPI", 0)
-                player = data.get("PlayerNickname", "Unknown")
-
-                result = (
-                    f"✅ *LIKES SENT SUCCESSFULLY!!*\n\n"
-                    f"👤 *Player:* {player}\n"
-                    f"🆔 *UID:* `{uid}`\n"
-                    f"🌍 *Region:* IND\n"
-                    f"👍 *Likes Before:* {before}\n"
-                    f"✨ *Likes Added:* {added}\n"
-                    f"🇮🇳 *Total Likes Now:* {after}\n"
-                    f"⏰ *Processed At:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
-                )
+                result = f"✅ *Request Processed Successfully*\n\n👤 *Player:* {player}\n🆔 *UID:* `{uid}`\n👍 *Likes Before:* {before}\n✨ *Likes Added:* {added}\n🇮🇳 *Total Likes Now:* {after}\n⏰ *Processed At:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
                 profiles.update_one({"user_id": user_id}, {"$set": {"last_used": datetime.utcnow()}}, upsert=True)
 
         except Exception as e:
-            result = (
-                f"❌ *API Error: Unable to process like*\n\n"
-                f"🆔 *UID:* `{uid}`\n"
-                f"📛 Error: {str(e)}\n"
-                f"⏰ *Time:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
-            )
+            result = f"❌ *API Error: Unable to process like*\n\n🆔 *UID:* `{uid}`\n📛 Error: {str(e)}\n⏰ *Time:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
 
         try:
             await app.bot.send_message(
-                chat_id=chat_id,
-                reply_to_message_id=msg_id,
+                chat_id=user['chat_id'],
+                reply_to_message_id=user['message_id'],
                 text=result,
                 parse_mode='Markdown'
             )
