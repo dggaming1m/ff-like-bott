@@ -20,7 +20,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("8069913528:AAEWO2u3DynQodZqqBYmt_fkhcc_VUwqhEQ")
 MONGO_URI = os.getenv("mongodb+srv://dggaming:dggaming@cluster0.qnfxnzm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 SHORTNER_API = os.getenv("0b3be11de98ce79a01b780153eaca00c1927c157")
-FLASK_URL = os.getenv("https://ff-like-bot-3n6j.onrender.com")
+FLASK_URL = os.getenv("https://ff-like-bott.onrender.com")
 LIKE_API_URL = os.getenv("https://dev-like-api-fgya.vercel.app/like?uid={uid}")
 
 client = MongoClient(MONGO_URI)
