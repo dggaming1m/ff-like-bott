@@ -1,4 +1,3 @@
-
 import logging
 import time
 import random
@@ -8,25 +7,27 @@ from datetime import datetime, timedelta
 from pymongo import MongoClient
 from flask import Flask, request
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes
 import requests
 import threading
 import asyncio
 from dotenv import load_dotenv
 
-# === Load .env variables ===
+# === Load environment variables from .env file ===
 load_dotenv()
 
-BOT_TOKEN = os.getenv("8069913528:AAEWO2u3DynQodZqqBYmt_fkhcc_VUwqhEQ")
-MONGO_URI = os.getenv("mongodb+srv://dggaming:dggaming@cluster0.qnfxnzm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-SHORTNER_API = os.getenv("0b3be11de98ce79a01b780153eaca00c1927c157")
-FLASK_URL = os.getenv("https://ff-like-bott.onrender.com")
-LIKE_API_URL = os.getenv("https://dev-like-api-fgya.vercel.app/like?uid={uid}")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+MONGO_URI = os.getenv("MONGO_URI")
+SHORTNER_API = os.getenv("SHORTNER_API")
+FLASK_URL = os.getenv("FLASK_URL")
+LIKE_API_URL = os.getenv("LIKE_API_URL")
 
+# === MongoDB Setup ===
 client = MongoClient(MONGO_URI)
 db = client['likebot']
 users = db['verifications']
 
+# === Flask App ===
 flask_app = Flask(__name__)
 
 @flask_app.route("/verify/<code>")
@@ -37,6 +38,7 @@ def verify(code):
         return "✅ Verification successful. Bot will now process your like."
     return "❌ Link expired or already used."
 
+# === Telegram Bot ===
 async def like_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
@@ -49,7 +51,9 @@ async def like_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     code = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
-    short_link = requests.get(f"https://shortner.in/api?api={SHORTNER_API}&url={FLASK_URL}/verify/{code}").json()["shortenedUrl"]
+    short_link = requests.get(
+        f"https://shortner.in/api?api={SHORTNER_API}&url={FLASK_URL}/verify/{code}"
+    ).json()["shortenedUrl"]
 
     users.insert_one({
         "user_id": update.message.from_user.id,
@@ -65,6 +69,7 @@ async def like_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = f"🎯 *Like Request*\n\n🧑‍🚀 *From:* Ff\n🆔 *UID:* `{uid}`\n🌎 *Region:* IND\n⚠️ Verify within 10 minutes"
     await update.message.reply_text(msg, reply_markup=keyboard, parse_mode='Markdown')
 
+# === Background processor ===
 async def process_verified_likes(app: Application):
     while True:
         pending = users.find({"verified": True, "processed": {"$ne": True}})
@@ -80,13 +85,19 @@ async def process_verified_likes(app: Application):
             result = f"✅ *Request Processed Successfully*\n\n👤 *Player:* {player}\n🆔 *UID:* `{uid}`\n👍 *Likes Before:* {before}\n✨ *Likes Added:* {added}\n🇮🇳 *Total Likes Now:* {total}\n⏰ *Processed At:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
 
             try:
-                await app.bot.send_message(chat_id=user['chat_id'], reply_to_message_id=user['message_id'], text=result, parse_mode='Markdown')
+                await app.bot.send_message(
+                    chat_id=user['chat_id'],
+                    reply_to_message_id=user['message_id'],
+                    text=result,
+                    parse_mode='Markdown'
+                )
             except Exception as e:
                 print("Error sending message:", e)
 
             users.update_one({"_id": user['_id']}, {"$set": {"processed": True}})
         await asyncio.sleep(5)
 
+# === Start Everything ===
 def run_bot():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("like", like_command))
