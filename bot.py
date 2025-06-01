@@ -1,8 +1,17 @@
-import logging import time import random import string import os from datetime import datetime, timedelta from pymongo import MongoClient from flask import Flask, request from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton from telegram.ext import Application, CommandHandler, ContextTypes import requests import threading import asyncio from dotenv import load_dotenv
-
-=== Load environment variables ===
-
-load_dotenv()
+import logging
+import time
+import random
+import string
+import os
+from datetime import datetime, timedelta
+from pymongo import MongoClient
+from flask import Flask, request
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import Application, CommandHandler, ContextTypes
+import requests
+import threading
+import asyncio
+from dotenv import load_dotenv
 
 BOT_TOKEN = os.getenv("BOT_TOKEN") MONGO_URI = os.getenv("MONGO_URI") SHORTNER_API = os.getenv("SHORTNER_API") FLASK_URL = os.getenv("FLASK_URL") LIKE_API_URL = os.getenv("LIKE_API_URL") PLAYER_INFO_API = os.getenv("PLAYER_INFO_API") HOW_TO_VERIFY_URL = os.getenv("HOW_TO_VERIFY_URL") VIP_ACCESS_URL = os.getenv("VIP_ACCESS_URL") ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.isdigit()]
 
