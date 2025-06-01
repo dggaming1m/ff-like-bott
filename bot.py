@@ -1,3 +1,4 @@
+
 import logging
 import time
 import random
@@ -13,7 +14,7 @@ import threading
 import asyncio
 from dotenv import load_dotenv
 
-# === Load environment variables from .env file ===
+# === Load environment variables ===
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -21,13 +22,14 @@ MONGO_URI = os.getenv("MONGO_URI")
 SHORTNER_API = os.getenv("SHORTNER_API")
 FLASK_URL = os.getenv("FLASK_URL")
 LIKE_API_URL = os.getenv("LIKE_API_URL")
+PLAYER_INFO_API = os.getenv("PLAYER_INFO_API")
+HOW_TO_VERIFY_URL = os.getenv("HOW_TO_VERIFY_URL")
+VIP_ACCESS_URL = os.getenv("VIP_ACCESS_URL")
 
-# === MongoDB Setup ===
 client = MongoClient(MONGO_URI)
 db = client['likebot']
 users = db['verifications']
 
-# === Flask App ===
 flask_app = Flask(__name__)
 
 @flask_app.route("/verify/<code>")
@@ -38,7 +40,6 @@ def verify(code):
         return "✅ Verification successful. Bot will now process your like."
     return "❌ Link expired or already used."
 
-# === Telegram Bot ===
 async def like_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
@@ -49,6 +50,12 @@ async def like_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         await update.message.reply_text("❌ Format galat hai. Use: /like ind <uid>")
         return
+
+    try:
+        info = requests.get(PLAYER_INFO_API.format(uid=uid)).json()
+        player_name = info.get("name", "Unknown")
+    except:
+        player_name = "Unknown"
 
     code = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
     short_link = requests.get(
@@ -65,11 +72,15 @@ async def like_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "message_id": update.message.message_id
     })
 
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ VERIFY & SEND LIKE", url=short_link)]])
-    msg = f"🎯 *Like Request*\n\n🧑‍🚀 *From:* Ff\n🆔 *UID:* `{uid}`\n🌎 *Region:* IND\n⚠️ Verify within 10 minutes"
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ VERIFY & SEND LIKE ✅", url=short_link)],
+        [InlineKeyboardButton("❓ How to Verify ❓", url=HOW_TO_VERIFY_URL)],
+        [InlineKeyboardButton("🧠 PURCHASE VIP & NO VERIFY", url=VIP_ACCESS_URL)]
+    ])
+
+    msg = f"🎯 *Like Request*\n\n👤 *From:* {player_name}\n🆔 *UID:* `{uid}`\n🌍 *Region:* IND\n⚠️ Verify within 10 minutes"
     await update.message.reply_text(msg, reply_markup=keyboard, parse_mode='Markdown')
 
-# === Background processor ===
 async def process_verified_likes(app: Application):
     while True:
         pending = users.find({"verified": True, "processed": {"$ne": True}})
@@ -97,7 +108,6 @@ async def process_verified_likes(app: Application):
             users.update_one({"_id": user['_id']}, {"$set": {"processed": True}})
         await asyncio.sleep(5)
 
-# === Start Everything ===
 def run_bot():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("like", like_command))
