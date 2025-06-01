@@ -39,8 +39,8 @@ def verify(code):
     user = users.find_one({"code": code})
     if user and not user.get("verified"):
         users.update_one({"code": code}, {"$set": {"verified": True, "verified_at": datetime.utcnow()}})
-        return "âœ… Verification successful. Bot will now process your like."
-    return "âŒ Link expired or already used."
+        return "✅ Verification successful. Bot will now process your like."
+    return "❌ Link expired or already used."
 
 async def like_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -57,7 +57,7 @@ async def like_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             remaining = timedelta(hours=24) - elapsed
             hours, remainder = divmod(remaining.seconds, 3600)
             minutes = remainder // 60
-            msg = f"âŒ You've already used your free like today.\n\nâ³ Try again after: {hours}h {minutes}m"
+            msg = f"❌ You've already used your free like today.\n\n⏳ Try again after: {hours}h {minutes}m"
             await update.message.reply_text(msg)
             return
 
@@ -65,7 +65,7 @@ async def like_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         args = update.message.text.split()
         uid = args[2]
     except:
-        await update.message.reply_text("âŒ Format galat hai. Use: /like ind <uid>")
+        await update.message.reply_text("❌ Format galat hai. Use: /like ind <uid>")
         return
 
     try:
@@ -96,27 +96,27 @@ async def like_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     profiles.update_one({"user_id": user_id}, {"$set": {"last_used": datetime.utcnow()}}, upsert=True)
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("âœ… VERIFY & SEND LIKE âœ…", url=short_link)],
-        [InlineKeyboardButton("â“ How to Verify â“", url=HOW_TO_VERIFY_URL)],
-        [InlineKeyboardButton("ðŸ§  PURCHASE VIP & NO VERIFY", url=VIP_ACCESS_URL)]
+        [InlineKeyboardButton("✅ VERIFY & SEND LIKE ✅", url=short_link)],
+        [InlineKeyboardButton("❓ How to Verify ❓", url=HOW_TO_VERIFY_URL)],
+        [InlineKeyboardButton("🧠 PURCHASE VIP & NO VERIFY", url=VIP_ACCESS_URL)]
     ])
 
-    msg = f"ðŸŽ¯ *Like Request*\n\nðŸ‘¤ *From:* {player_name}\nðŸ†” *UID:* `{uid}`\nðŸ… *Level:* {level}\nðŸŽ– *Rank:* {rank}\nðŸŒ *Region:* IND\nâš ï¸ Verify within 10 minutes"
+    msg = f"🎯 *Like Request*\n\n👤 *From:* {player_name}\n🆔 *UID:* `{uid}`\n🏅 *Level:* {level}\n🎖 *Rank:* {rank}\n🌍 *Region:* IND\n⚠️ Verify within 10 minutes"
     await update.message.reply_text(msg, reply_markup=keyboard, parse_mode='Markdown')
 
 async def givevip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMIN_IDS:
-        await update.message.reply_text("ðŸš« You are not authorized to use this command.")
+        await update.message.reply_text("🚫 You are not authorized to use this command.")
         return
 
     try:
         target_id = int(context.args[0])
     except:
-        await update.message.reply_text("âŒ Use: /givevip <user_id>")
+        await update.message.reply_text("❌ Use: /givevip <user_id>")
         return
 
     profiles.update_one({"user_id": target_id}, {"$set": {"is_vip": True}}, upsert=True)
-    await update.message.reply_text(f"âœ… VIP access granted to user `{target_id}`", parse_mode='Markdown')
+    await update.message.reply_text(f"✅ VIP access granted to user `{target_id}`", parse_mode='Markdown')
 
 async def process_verified_likes(app: Application):
     while True:
@@ -131,12 +131,12 @@ async def process_verified_likes(app: Application):
                 total = before + added
 
                 if added == 0:
-                    result = f"âŒ *Like Failed or Max Limit Reached*\n\nðŸ‘¤ *Player:* {player}\nðŸ†” *UID:* `{uid}`\nðŸ‘ *Likes Before:* {before}\nâœ¨ *Likes Added:* 0\nðŸ‡®ðŸ‡³ *Total Likes Now:* {total}\nâ° *Tried At:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
+                    result = f"❌ *Like Failed or Max Limit Reached*\n\n👤 *Player:* {player}\n🆔 *UID:* `{uid}`\n👍 *Likes Before:* {before}\n✨ *Likes Added:* 0\n🇮🇳 *Total Likes Now:* {total}\n⏰ *Tried At:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
                 else:
-                    result = f"âœ… *Request Processed Successfully*\n\nðŸ‘¤ *Player:* {player}\nðŸ†” *UID:* `{uid}`\nðŸ‘ *Likes Before:* {before}\nâœ¨ *Likes Added:* {added}\nðŸ‡®ðŸ‡³ *Total Likes Now:* {total}\nâ° *Processed At:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
+                    result = f"✅ *Request Processed Successfully*\n\n👤 *Player:* {player}\n🆔 *UID:* `{uid}`\n👍 *Likes Before:* {before}\n✨ *Likes Added:* {added}\n🇮🇳 *Total Likes Now:* {total}\n⏰ *Processed At:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
 
             except Exception as e:
-                result = f"âŒ *API Error: Unable to process like*\n\nðŸ†” *UID:* `{uid}`\nðŸ“› Error: {str(e)}\nâ° *Time:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
+                result = f"❌ *API Error: Unable to process like*\n\n🆔 *UID:* `{uid}`\n📛 Error: {str(e)}\n⏰ *Time:* {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
 
             try:
                 await app.bot.send_message(
@@ -164,3 +164,4 @@ def run_bot():
 
 if __name__ == '__main__':
     run_bot()
+    
